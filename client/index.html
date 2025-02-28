@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>File Upload</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="watermark">Paul & Kaushik Search Engine</div>
+  <div class="container">
+    <h1>Load My Engine</h1>
+    <form id="upload-form" enctype="multipart/form-data">
+      <div class="upload-section">
+        <input type="file" name="file" id="file-upload" multiple />
+      </div>
+      <button type="button" id="upload-btn">Upload</button>
+    </form>
+    <div id="selected-files"></div>
+    <div id="message"></div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("file-upload");
+    const message = document.getElementById("message");
+    const uploadBtn = document.getElementById("upload-btn");
+    const selectedFilesDiv = document.getElementById("selected-files");
+
+    fileInput.addEventListener("change", () => {
+      selectedFilesDiv.innerHTML = ""; 
+      if (fileInput.files.length === 0) {
+        selectedFilesDiv.textContent = "No files selected.";
+        return;
+      }
+
+      const fileList = document.createElement("ul");
+      for (const file of fileInput.files) {
+        const listItem = document.createElement("li");
+        listItem.textContent = file.name; 
+        fileList.appendChild(listItem);
+      }
+      selectedFilesDiv.appendChild(fileList);
+    });
+
+    uploadBtn.addEventListener("click", async () => {
+      message.textContent = "";
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        message.style.color = "red";
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append("myFile", file);
+
+      try {
+        const response = await fetch("http://localhost:3000/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        alert(result.message); 
+        window.location.href = "search.html"; 
+      } catch (error) {
+        console.error(error);
+        message.textContent = `Upload failed: ${error.message}`;
+        message.style.color = "red";
+      }
+    });
+  </script>
+</body>
+</html>
