@@ -1,20 +1,20 @@
 {
-  "name": "server",
-  "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@google-cloud/storage": "^7.15.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "multer": "^1.4.5-lts.1"
-  }
+    "name": "ccloud-nodejs-client",
+    "version": "1.0.0",
+    "description": "A Node.js application that subscribes to a topic on a Confluent Cloud Kafka cluster, sends a sample message, and consumes it.",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "engines": {
+        "node": ">=18.0.0 <23.0.0"
+    },
+    "dependencies": {
+        "@confluentinc/kafka-javascript": "^1.0.0",
+        "ccloud-nodejs-client": "file:",
+        "cors": "^2.8.5",
+        "express": "^5.1.0",
+        "multer": "^1.4.5-lts.2",
+        "uuid": "^11.1.0"
+    }
 }

@@ -11,12 +11,13 @@
     <h1>Load My Engine</h1>
     <form id="upload-form" enctype="multipart/form-data">
       <div class="upload-section">
-        <input type="file" name="file" id="file-upload" multiple />
+        <input type="file" name="files" id="file-upload" multiple />
       </div>
       <button type="button" id="upload-btn">Upload</button>
     </form>
     <div id="selected-files"></div>
     <div id="message"></div>
+    <div id="processing-status"></div>
   </div>
 
   <script>
@@ -24,48 +25,78 @@
     const message = document.getElementById("message");
     const uploadBtn = document.getElementById("upload-btn");
     const selectedFilesDiv = document.getElementById("selected-files");
+    const processingStatus = document.getElementById("processing-status");
 
     fileInput.addEventListener("change", () => {
-      selectedFilesDiv.innerHTML = ""; 
+      selectedFilesDiv.innerHTML = "";
+      
       if (fileInput.files.length === 0) {
         selectedFilesDiv.textContent = "No files selected.";
         return;
       }
-
+      
       const fileList = document.createElement("ul");
       for (const file of fileInput.files) {
         const listItem = document.createElement("li");
-        listItem.textContent = file.name; 
+        listItem.textContent = file.name;
         fileList.appendChild(listItem);
       }
+      
       selectedFilesDiv.appendChild(fileList);
     });
 
     uploadBtn.addEventListener("click", async () => {
       message.textContent = "";
-
+      processingStatus.textContent = "";
+      
       if (!fileInput.files || fileInput.files.length === 0) {
+        message.textContent = "Please select files to upload.";
         message.style.color = "red";
         return;
       }
-
-      const file = fileInput.files[0];
+      
+      // Show uploading status
+      message.textContent = "Uploading files...";
+      message.style.color = "blue";
+      
+      // Create FormData with all selected files
       const formData = new FormData();
-      formData.append("myFile", file);
-
+      for (const file of fileInput.files) {
+        formData.append("files", file);
+      }
+      
       try {
         const response = await fetch("http://localhost:3000/upload", {
           method: "POST",
           body: formData
         });
-
+        
         if (!response.ok) {
           throw new Error(`Server error: ${response.status} ${response.statusText}`);
         }
-
+        
         const result = await response.json();
-        alert(result.message); 
-        window.location.href = "search.html"; 
+        message.textContent = result.message;
+        message.style.color = "green";
+        
+        if (result.files && result.files.length > 0) {
+          // If we have file information, display job IDs
+          processingStatus.innerHTML = `<p>Files are being processed. Job IDs:</p>`;
+          const jobList = document.createElement("ul");
+          
+          for (const file of result.files) {
+            const listItem = document.createElement("li");
+            listItem.textContent = `${file.filename}: Job ID ${file.jobId}`;
+            jobList.appendChild(listItem);
+          }
+          
+          processingStatus.appendChild(jobList);
+        }
+        
+        // Redirect after a delay
+        setTimeout(() => {
+          window.location.href = "search.html";
+        }, 3000);
       } catch (error) {
         console.error(error);
         message.textContent = `Upload failed: ${error.message}`;
