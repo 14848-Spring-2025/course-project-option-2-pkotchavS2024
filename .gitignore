@@ -1,2 +1,8 @@
 */node_modules
-*/client.properties
+/client.properties
+*/env
+*/processed_files
+*/temp_files
+*/.terraform
+*/.terraform.lock.hcl
+*/kafka_consumer.log

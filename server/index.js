@@ -24,7 +24,7 @@ app.use(express.json());
 const PORT = 3000;
 
 // Load Kafka configuration
-const config = readConfig("client.properties");
+const config = readConfig("../client.properties");
 const TOPIC = "file-processing"; // Change to your desired topic name
 
 // Initialize Kafka producer

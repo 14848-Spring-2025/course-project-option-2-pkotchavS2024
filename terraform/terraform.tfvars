@@ -1,0 +1,8 @@
+project = "emerald-skill-436000-t2"
+region = "us-central1"
+zone = "us-central1-b"
+network = "default"
+staging_bucket = "emerald-skill-436000-t2_cloudbuild"
+cluster_name = "my-dataproc-cluster"
+cluster_version = "2.0-debian10"
+service_account = "998701995692-compute@developer.gserviceaccount.com"
