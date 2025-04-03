@@ -11,3 +11,4 @@
 */mapreduce_test
 */__pycache__
 */terraform.tfstate
+*/terraform.tfstate.backup
