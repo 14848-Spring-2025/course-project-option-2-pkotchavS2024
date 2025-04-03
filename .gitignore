@@ -6,3 +6,8 @@
 */.terraform
 */.terraform.lock.hcl
 */kafka_consumer.log
+*/key.json
+*/search_index_output
+*/mapreduce_test
+*/__pycache__
+*/terraform.tfstate

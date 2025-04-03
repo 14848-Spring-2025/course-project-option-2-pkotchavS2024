@@ -2,32 +2,199 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>File Upload</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Search Engine</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    
+    .watermark {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      opacity: 0.3;
+      font-size: 14px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      background-color: white;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .big-button {
+      display: block;
+      width: 80%;
+      margin: 20px auto;
+      padding: 15px;
+      font-size: 18px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .big-button:hover {
+      background-color: #45a049;
+    }
+
+    .input-group {
+      margin: 20px 0;
+      width: 80%;
+      margin: 20px auto;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    .message {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    .info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+    }
+    
+    #debug-output {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    li {
+      padding: 10px;
+      margin: 5px 0;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+    }
+  </style>
 </head>
 <body>
-  <div class="watermark">Paul & Kaushik Search Engine</div>
-  <div class="container">
+  <div class="watermark">Search Engine</div>
+  
+  <!-- Upload Section -->
+  <div id="upload-section" class="container">
     <h1>Load My Engine</h1>
-    <form id="upload-form" enctype="multipart/form-data">
+    <div id="upload-container">
       <div class="upload-section">
         <input type="file" name="files" id="file-upload" multiple />
       </div>
-      <button type="button" id="upload-btn">Upload</button>
-    </form>
+      <button type="button" id="upload-btn" class="big-button">Upload</button>
+    </div>
     <div id="selected-files"></div>
     <div id="message"></div>
     <div id="processing-status"></div>
+    <div id="debug-output"></div>
+  </div>
+  
+  <!-- Action Selection Section (Initially Hidden) -->
+  <div id="action-section" class="container hidden">
+    <h1>Please Select Action</h1>
+    
+    <div class="input-group">
+      <label for="search-input">Search Keyword:</label>
+      <input type="text" id="search-input" placeholder="Enter keyword to search...">
+    </div>
+    <button class="big-button" id="search-btn">Search</button>
+
+    <div class="input-group">
+      <label for="topn-input">Top N Value:</label>
+      <input type="number" id="topn-input" placeholder="Enter a number..." min="1" value="10">
+    </div>
+    <button class="big-button" id="topn-btn">Top-N</button>
+  </div>
+
+  <!-- Results Section -->
+  <div id="results-section" class="container hidden">
+    <h1>Results</h1>
+    <div id="results-content"></div>
+    <button class="big-button" id="back-btn">Back</button>
   </div>
 
   <script>
+    // Debug helper
+    const debugOutput = document.getElementById("debug-output");
+    function debug(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      debugOutput.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+      debugOutput.scrollTop = debugOutput.scrollHeight;
+      console.log(`[${timestamp}] ${message}`);
+    }
+    
+    // DOM Elements
     const fileInput = document.getElementById("file-upload");
     const message = document.getElementById("message");
     const uploadBtn = document.getElementById("upload-btn");
     const selectedFilesDiv = document.getElementById("selected-files");
     const processingStatus = document.getElementById("processing-status");
+    const uploadSection = document.getElementById("upload-section");
+    const actionSection = document.getElementById("action-section");
+    const resultsSection = document.getElementById("results-section");
+    const resultsContent = document.getElementById("results-content");
+    const searchBtn = document.getElementById("search-btn");
+    const topnBtn = document.getElementById("topn-btn");
+    const backBtn = document.getElementById("back-btn");
+    const searchInput = document.getElementById("search-input");
+    const topnInput = document.getElementById("topn-input");
 
-    fileInput.addEventListener("change", () => {
+    // Track if upload is in progress
+    let isUploading = false;
+
+    debug("Page loaded");
+
+    // File selection handler
+    fileInput.addEventListener("change", (e) => {
+      e.preventDefault();
+      
+      debug("File selection changed");
       selectedFilesDiv.innerHTML = "";
       
       if (fileInput.files.length === 0) {
@@ -43,41 +210,71 @@
       }
       
       selectedFilesDiv.appendChild(fileList);
+      debug(`Selected ${fileInput.files.length} files`);
     });
 
-    uploadBtn.addEventListener("click", async () => {
+    // Upload button handler
+    uploadBtn.addEventListener("click", async (e) => {
+      // Prevent default (although it's a button of type="button", so no default action)
+      e.preventDefault();
+      
+      // If already uploading, ignore the click
+      if (isUploading) {
+        debug("Upload already in progress, ignoring click");
+        return;
+      }
+      
+      debug("Upload button clicked");
+      
       message.textContent = "";
+      message.className = "";
       processingStatus.textContent = "";
       
       if (!fileInput.files || fileInput.files.length === 0) {
         message.textContent = "Please select files to upload.";
-        message.style.color = "red";
+        message.className = "message error";
+        debug("No files selected");
         return;
       }
       
+      // Set uploading flag
+      isUploading = true;
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "Uploading...";
+      
       // Show uploading status
       message.textContent = "Uploading files...";
-      message.style.color = "blue";
+      message.className = "message info";
+      debug("Starting upload process");
       
       // Create FormData with all selected files
       const formData = new FormData();
       for (const file of fileInput.files) {
         formData.append("files", file);
+        debug(`Added file to form: ${file.name}`);
       }
       
       try {
+        debug("Sending fetch request");
         const response = await fetch("http://localhost:3000/upload", {
           method: "POST",
-          body: formData
+          body: formData,
         });
+        
+        // Reset upload state
+        isUploading = false;
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "Upload";
         
         if (!response.ok) {
           throw new Error(`Server error: ${response.status} ${response.statusText}`);
         }
         
         const result = await response.json();
+        debug(`Response received: ${JSON.stringify(result)}`);
+        
         message.textContent = result.message;
-        message.style.color = "green";
+        message.className = "message success";
         
         if (result.files && result.files.length > 0) {
           // If we have file information, display job IDs
@@ -88,21 +285,191 @@
             const listItem = document.createElement("li");
             listItem.textContent = `${file.filename}: Job ID ${file.jobId}`;
             jobList.appendChild(listItem);
+            debug(`Job ID for ${file.filename}: ${file.jobId}`);
           }
           
           processingStatus.appendChild(jobList);
         }
         
-        // Redirect after a delay
+        debug("Setting timeout for section transition");
+        
         setTimeout(() => {
-          window.location.href = "search.html";
+          debug("Timeout triggered - showing alert");
+          alert("Engine was loaded & Inverted Indices were created successfully!");
+          
+          debug("Transitioning to action section");
+          // Hide upload section and show action section
+          uploadSection.classList.add("hidden");
+          actionSection.classList.remove("hidden");
+          debug("Transition complete");
         }, 3000);
+        
       } catch (error) {
+        // Reset upload state on error too
+        isUploading = false;
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "Upload";
+        
+        debug(`Error occurred: ${error.message}`);
         console.error(error);
         message.textContent = `Upload failed: ${error.message}`;
-        message.style.color = "red";
+        message.className = "message error";
       }
     });
+
+    // Search button handler
+    searchBtn.addEventListener("click", async function(e) {
+      e.preventDefault();
+      
+      const keyword = searchInput.value.trim();
+      
+      if (!keyword) {
+        alert("Please enter a keyword to search");
+        return;
+      }
+      
+      debug(`Search button clicked with keyword: ${keyword}`);
+      
+      try {
+        debug("Sending search request");
+        const response = await fetch(`http://localhost:3000/search?keyword=${encodeURIComponent(keyword)}`);
+        
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        debug(`Search results received: ${JSON.stringify(result)}`);
+        
+        // Display results
+        displayResults("Search Results", result, keyword);
+        
+      } catch (error) {
+        debug(`Search error: ${error.message}`);
+        alert(`Search failed: ${error.message}`);
+      }
+    });
+    
+    // Top-N button handler
+    topnBtn.addEventListener("click", async function(e) {
+      e.preventDefault();
+      
+      const n = topnInput.value.trim();
+      
+      if (!n || isNaN(parseInt(n)) || parseInt(n) < 1) {
+        alert("Please enter a valid number");
+        return;
+      }
+      
+      debug(`Top-N button clicked with N: ${n}`);
+      
+      try {
+        debug("Sending top-n request");
+        const response = await fetch(`http://localhost:3000/topn?n=${encodeURIComponent(n)}`);
+        
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        debug(`Top-N results received: ${JSON.stringify(result)}`);
+        
+        // Display results
+        displayResults(`Top ${n} Words`, result);
+        
+      } catch (error) {
+        debug(`Top-N error: ${error.message}`);
+        alert(`Top-N failed: ${error.message}`);
+      }
+    });
+    
+    // Back button handler
+    backBtn.addEventListener("click", function(e) {
+      e.preventDefault();
+      debug("Back button clicked");
+      resultsSection.classList.add("hidden");
+      actionSection.classList.remove("hidden");
+    });
+    
+    // Function to display results
+    function displayResults(title, data, keyword) {
+      // Set the title
+      resultsContent.innerHTML = `<h2>${title}</h2>`;
+      
+      debug(`Displaying results: ${JSON.stringify(data)}`);
+      
+      // Check if data is available
+      if (!data || Object.keys(data).length === 0) {
+        resultsContent.innerHTML += "<p>No results found.</p>";
+        debug("No results to display");
+        return;
+      }
+      
+      // Create results list
+      const resultsList = document.createElement("ul");
+      
+      // Handle search results
+      if (keyword) {
+        debug(`Processing search results for keyword: ${keyword}`);
+        
+        // Check if we have results for this keyword
+        const results = data;
+        
+        if (!results || Object.keys(results).length === 0) {
+          resultsContent.innerHTML += `<p>No results found for "${keyword}".</p>`;
+          debug(`No results found for keyword: ${keyword}`);
+          return;
+        }
+        
+        // Process each term in the results
+        for (const term in results) {
+          // Add a header for this term
+          const termHeader = document.createElement("h3");
+          termHeader.textContent = `Results for "${term}"`;
+          resultsContent.appendChild(termHeader);
+          
+          // Create a new list for this term's results
+          const termList = document.createElement("ul");
+          
+          // Add each document result for this term
+          results[term].forEach((doc, index) => {
+            const listItem = document.createElement("li");
+            
+            listItem.innerHTML = `
+              <div><strong>Document:</strong> ${doc.doc_id}</div>
+              <div><strong>Score:</strong> ${doc.score}</div>
+            `;
+            
+            termList.appendChild(listItem);
+          });
+          
+          resultsContent.appendChild(termList);
+        }
+      } 
+      // Handle Top-N results
+      else {
+        debug("Processing Top-N results");
+        
+        // Process each result in the top-N list
+        data.forEach((item, index) => {
+          const listItem = document.createElement("li");
+          
+          listItem.innerHTML = `
+            <div><strong>Word:</strong> ${item.word}</div>
+            <div><strong>Frequency:</strong> ${item.frequency}</div>
+          `;
+          
+          resultsList.appendChild(listItem);
+        });
+        
+        resultsContent.appendChild(resultsList);
+      }
+      
+      // Show results section, hide action section
+      actionSection.classList.add("hidden");
+      resultsSection.classList.remove("hidden");
+      debug("Results displayed successfully");
+    }
   </script>
 </body>
 </html>
