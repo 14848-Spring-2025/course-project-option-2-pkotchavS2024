@@ -59,7 +59,7 @@ function readConfig(fileName) {
 async function initKafka() {
   try {
     // Load Kafka configuration
-    const config = readConfig("../client.properties");
+    const config = readConfig("./client.properties");
     
     // Initialize producer
     producer = new Kafka().producer(config);

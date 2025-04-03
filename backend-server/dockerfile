@@ -1,0 +1,37 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy only the specific Python files needed
+COPY ./gcs_manager.py ./main.py ./submit_job.py ./
+
+# Create necessary directories
+RUN mkdir -p processed_files temp_files search_index_output
+
+# Environment variables with defaults
+ENV KAFKA_BOOTSTRAP_SERVERS=localhost:9092 \
+    KAFKA_SECURITY_PROTOCOL=PLAINTEXT \
+    KAFKA_SASL_MECHANISM=PLAIN \
+    KAFKA_SASL_USERNAME="" \
+    KAFKA_SASL_PASSWORD="" \
+    KAFKA_GROUP_ID=file-processor \
+    KAFKA_AUTO_OFFSET_RESET=earliest \
+    GCS_BUCKET_NAME=emerald-skill-436000-t2_cloudbuild \
+    GCS_CREDENTIALS_PATH=./key.json \
+    GCS_PROCESSED_FILES_PREFIX=processed_files \
+    GCS_INDEX_PREFIX=search_index_output \
+    PROJECT_ID=emerald-skill-436000-t2 \
+    REGION=us-central1 \
+    CLUSTER_NAME=my-dataproc-cluster \
+    FILE_PROCESSING_TOPIC=file-processing \
+    SEARCH_REQUEST_TOPIC=search-request \
+    TOPN_REQUEST_TOPIC=topn-request \
+    SEARCH_RESPOND_TOPIC=search-response \
+    TOPN_RESPOND_TOPIC=topn-response \
+    FILE_PROCESSING_DONE_TOPIC=file-processing-done
+
+CMD ["python", "main.py"]

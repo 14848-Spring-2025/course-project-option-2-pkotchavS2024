@@ -6,7 +6,7 @@ import ActionSection from './components/ActionSection';
 import ResultsSection from './components/ResultsSection';
 
 function App() {
-  const [currentView, setCurrentView] = useState('action'); // 'upload', 'action', 'results'
+  const [currentView, setCurrentView] = useState('upload'); // 'upload', 'action', 'results'
   const [results, setResults] = useState(null);
   const [resultsTitle, setResultsTitle] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -37,6 +37,11 @@ function App() {
     setCurrentView('action');
   };
 
+  // Handle back button from action
+  const handleBackToUpload = () => {
+    setCurrentView('upload');
+  };
+
   return (
     <div className="App">
       <div className="watermark">Search Engine</div>
@@ -46,7 +51,11 @@ function App() {
       )}
       
       {currentView === 'action' && (
-        <ActionSection onSearch={handleSearch} onTopN={handleTopN} />
+        <ActionSection 
+          onSearch={handleSearch} 
+          onTopN={handleTopN} 
+          onBack={handleBackToUpload} 
+        />
       )}
       
       {currentView === 'results' && (
@@ -61,4 +70,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;

@@ -10,6 +10,6 @@
 */search_index_output
 */mapreduce_test
 */__pycache__
-# */terraform.tfstate
-# */terraform.tfstate.backup
-# */package-lock.json
+*/terraform.tfstate
+*/terraform.tfstate.backup
+*/package-lock.json

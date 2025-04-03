@@ -1,8 +1,7 @@
-// src/components/ActionSection.js
 import React, { useState } from 'react';
 import DebugOutput from './DebugOutput';
 
-const ActionSection = ({ onSearch, onTopN }) => {
+const ActionSection = ({ onSearch, onTopN, onBack }) => {
   const [keyword, setKeyword] = useState('');
   const [topN, setTopN] = useState(10);
   const [debugMessages, setDebugMessages] = useState([]);
@@ -78,6 +77,12 @@ const ActionSection = ({ onSearch, onTopN }) => {
     }
   };
 
+  const handleBack = (e) => {
+    e.preventDefault();
+    debug("Back button clicked");
+    if (onBack) onBack();
+  };
+
   return (
     <div className="container">
       <h1>Please Select Action</h1>
@@ -106,6 +111,10 @@ const ActionSection = ({ onSearch, onTopN }) => {
         />
       </div>
       <button className="big-button" onClick={handleTopN}>Top-N</button>
+      
+      {onBack && (
+        <button className="big-button" onClick={handleBack}>Back</button>
+      )}
       
       <DebugOutput messages={debugMessages} />
     </div>

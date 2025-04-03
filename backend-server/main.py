@@ -14,20 +14,34 @@ from collections import defaultdict
 import logging
 from gcs_manager import GCSManager  # Import the GCS Manager
 from submit_job import submit_job
-# GCS configuration
-GCS_BUCKET_NAME = "emerald-skill-436000-t2_cloudbuild"
-GCS_CREDENTIALS_PATH = "./key.json"
-GCS_PROCESSED_FILES_PREFIX = "processed_files"
-GCS_INDEX_PREFIX = "search_index_output"
-PROJECT_ID = "emerald-skill-436000-t2"
-REGION = "us-central1"
-CLUSTER_NAME = "my-dataproc-cluster"
 
-FILE_PROCESSING_TOPIC = 'file-processing'
-SEARCH_REQUEST_TOPIC = 'search-request'
-TOPN_REQUEST_TOPIC = 'topn-request'
-SEARCH_RESPOND_TOPIC = 'search-response'
-TOPN_RESPOND_TOPIC = 'topn-response'
+# Configuration variables from environment
+# Kafka configuration
+KAFKA_BOOTSTRAP_SERVERS = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+KAFKA_SECURITY_PROTOCOL = os.environ.get('KAFKA_SECURITY_PROTOCOL', 'PLAINTEXT')
+KAFKA_SASL_MECHANISM = os.environ.get('KAFKA_SASL_MECHANISM', 'PLAIN')
+KAFKA_SASL_USERNAME = os.environ.get('KAFKA_SASL_USERNAME', '')
+KAFKA_SASL_PASSWORD = os.environ.get('KAFKA_SASL_PASSWORD', '')
+KAFKA_GROUP_ID = os.environ.get('KAFKA_GROUP_ID', 'file-processor')
+KAFKA_AUTO_OFFSET_RESET = os.environ.get('KAFKA_AUTO_OFFSET_RESET', 'earliest')
+
+# GCS configuration
+GCS_BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME', "emerald-skill-436000-t2_cloudbuild")
+GCS_CREDENTIALS_PATH = os.environ.get('GCS_CREDENTIALS_PATH', "./key.json")
+GCS_PROCESSED_FILES_PREFIX = os.environ.get('GCS_PROCESSED_FILES_PREFIX', "processed_files")
+GCS_INDEX_PREFIX = os.environ.get('GCS_INDEX_PREFIX', "search_index_output")
+PROJECT_ID = os.environ.get('PROJECT_ID', "emerald-skill-436000-t2")
+REGION = os.environ.get('REGION', "us-central1")
+CLUSTER_NAME = os.environ.get('CLUSTER_NAME', "my-dataproc-cluster")
+
+# Kafka topics
+FILE_PROCESSING_TOPIC = os.environ.get('FILE_PROCESSING_TOPIC', 'file-processing')
+SEARCH_REQUEST_TOPIC = os.environ.get('SEARCH_REQUEST_TOPIC', 'search-request')
+TOPN_REQUEST_TOPIC = os.environ.get('TOPN_REQUEST_TOPIC', 'topn-request')
+SEARCH_RESPOND_TOPIC = os.environ.get('SEARCH_RESPOND_TOPIC', 'search-response')
+TOPN_RESPOND_TOPIC = os.environ.get('TOPN_RESPOND_TOPIC', 'topn-response')
+FILE_PROCESSING_DONE_TOPIC = os.environ.get('FILE_PROCESSING_DONE_TOPIC', 'file-processing-done')
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -39,27 +53,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger("kafka-processor")
 search_engine = None
-# Function to read Kafka configuration from client.properties
-def read_config(file_path):
-    config = {}
-    try:
-        with open(file_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    key, value = line.split('=', 1)
-                    config[key.strip()] = value.strip()
-        return config
-    except Exception as e:
-        logger.error(f"Error reading config file: {e}")
-        raise
 
-# Read Kafka configuration from client.properties
-kafka_config = read_config("../client.properties")
-
-# Add consumer-specific configurations
-kafka_config['group.id'] = 'file-processor'
-kafka_config['auto.offset.reset'] = 'earliest'
+# Create Kafka config from environment variables instead of reading from file
+def get_kafka_config():
+    config = {
+        'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
+        'group.id': KAFKA_GROUP_ID,
+        'auto.offset.reset': KAFKA_AUTO_OFFSET_RESET
+    }
+    
+    # Add security configuration if using SASL
+    if KAFKA_SECURITY_PROTOCOL != 'PLAINTEXT':
+        config.update({
+            'security.protocol': KAFKA_SECURITY_PROTOCOL,
+            'sasl.mechanism': KAFKA_SASL_MECHANISM,
+            'sasl.username': KAFKA_SASL_USERNAME,
+            'sasl.password': KAFKA_SASL_PASSWORD
+        })
+    
+    return config
 
 # Directory to store processed files
 OUTPUT_DIR = "processed_files"
@@ -712,14 +724,14 @@ def handle_file_processing(producer, msg):
                         logger.info(f"Kaushik Done")
                         if index_downloaded:
                             logger.info(f"Index Downloaded")
-                            search_engine = SearchEngine(index_dir)
+                            search_engine = SearchEngine(INDEX_DIR)
                             send_processing_complete(producer, job_id, True, 
                                                     f"Processing and reindexing completed successfully for {total_files} files")
                             
-                        #     logger.info(f"Reindexing completed for job {job_id}")
-                        # else:
-                        #     send_processing_complete(producer, job_id, False, "Dataproc job failed")
-                        #     logger.error(f"Dataproc job {dataproc_job_id} failed or timed out")
+                            logger.info(f"Reindexing completed for job {job_id}")
+                        else:
+                            send_processing_complete(producer, job_id, False, "Dataproc job failed")
+                            logger.error(f"Dataproc job {dataproc_job_id} failed or timed out")
                     else:
                         send_processing_complete(producer, job_id, False, "Failed to submit Dataproc job")
                         logger.error(f"Failed to submit Dataproc job for job {job_id}")
@@ -747,7 +759,7 @@ def send_processing_complete(producer, job_id, success, message):
         
         # Send to FILE_PROCESSING_DONE topic
         producer.produce(
-            'file-processing-done',  # This should match the topic in your Node.js code
+            FILE_PROCESSING_DONE_TOPIC,  # Use the env var instead of hardcoded string
             key=job_id,
             value=json.dumps(response).encode('utf-8'),
             callback=lambda err, msg: logger.error(f"Failed to send completion response: {err}") if err else None
@@ -758,9 +770,12 @@ def send_processing_complete(producer, job_id, success, message):
     except Exception as e:
         logger.error(f"Error sending processing completion: {e}", exc_info=True)
 
-# Update the kafka_consumer_loop function to pass the producer to handlers
+# Update the kafka_consumer_loop function to use the environment-based configuration
 def kafka_consumer_loop():
     """Main Kafka consumer loop"""
+    # Get Kafka configuration from environment variables
+    kafka_config = get_kafka_config()
+    
     # Create Kafka consumer for all topics
     consumer = Consumer(kafka_config)
     
@@ -877,13 +892,17 @@ def cleanup_thread():
             for job_id, files in file_chunks.items():
                 all_processed = True
                 for filename, file_info in files.items():
+                    # Skip metadata fields
+                    if filename.startswith('__') and filename.endswith('__'):
+                        continue
+                        
                     # If the file hasn't been processed and it's been more than 10 minutes
-                    if not file_info["processed"] and current_time - file_info.get("last_update", current_time) > 600:
+                    if not file_info.get("processed", False) and current_time - file_info.get("last_update", current_time) > 600:
                         logger.warning(f"File transfer incomplete for {filename} (Job ID: {job_id}). Attempting to process anyway.")
                         if process_chunks(job_id, filename):
                             file_info["processed"] = True
                     
-                    all_processed = all_processed and file_info["processed"]
+                    all_processed = all_processed and file_info.get("processed", False)
                 
                 # If all files in this job are processed, mark for removal
                 if all_processed:
@@ -909,14 +928,19 @@ def cleanup_thread():
         time.sleep(300)
 
 if __name__ == "__main__":
-    # Log the Kafka configuration (without sensitive info)
-    safe_config = kafka_config.copy()
-    if 'sasl.password' in safe_config:
-        safe_config['sasl.password'] = '******'
-    logger.info(f"Starting with Kafka config: {safe_config}")
+    # Log environment variables (sanitized)
+    logger.info(f"Starting with configuration:")
+    logger.info(f"- KAFKA_BOOTSTRAP_SERVERS: {KAFKA_BOOTSTRAP_SERVERS}")
+    logger.info(f"- KAFKA_SECURITY_PROTOCOL: {KAFKA_SECURITY_PROTOCOL}")
+    logger.info(f"- KAFKA_SASL_MECHANISM: {KAFKA_SASL_MECHANISM}")
+    logger.info(f"- KAFKA_SASL_USERNAME: {'[REDACTED]' if KAFKA_SASL_USERNAME else 'Not set'}")
+    logger.info(f"- KAFKA_SASL_PASSWORD: {'[REDACTED]' if KAFKA_SASL_PASSWORD else 'Not set'}")
+    logger.info(f"- GCS_BUCKET_NAME: {GCS_BUCKET_NAME}")
+    logger.info(f"- PROJECT_ID: {PROJECT_ID}")
+    logger.info(f"- REGION: {REGION}")
     
     # Initialize search engine with index directory
-    index_dir = "search_index_output"  # Update this path if needed
+    index_dir = INDEX_DIR  # Use the constant defined at the top
     search_engine = SearchEngine(index_dir)
     logger.info(f"Search engine initialized with {len(search_engine.index)} terms")
     
