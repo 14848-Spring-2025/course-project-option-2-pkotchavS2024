@@ -1,3 +1,4 @@
+# Add GKE provider to the required providers block
 terraform {
   required_providers {
     confluent = {
@@ -8,6 +9,10 @@ terraform {
       source  = "hashicorp/time"
       version = "0.9.1"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -16,6 +21,17 @@ provider "confluent" {
   cloud_api_key    = var.confluent_cloud_api_key
   cloud_api_secret = var.confluent_cloud_api_secret
 }
+
+# Configure the Google Provider
+# Configure the Kubernetes Provider after GKE cluster is created
+provider "kubernetes" {
+  host                   = "https://${google_container_cluster.kafka_consumer_cluster.endpoint}"
+  token                  = data.google_client_config.default.access_token
+  cluster_ca_certificate = base64decode(google_container_cluster.kafka_consumer_cluster.master_auth[0].cluster_ca_certificate)
+}
+
+# Get access token for Kubernetes provider
+data "google_client_config" "default" {}
 
 resource "google_dataproc_cluster" "dp_cluster" {
   name     = var.cluster_name
@@ -181,6 +197,238 @@ resource "confluent_kafka_topic" "topics" {
   depends_on = [confluent_kafka_acl.client_acls]
 }
 
+# Create a GKE cluster instead of GCE VM
+resource "google_container_cluster" "kafka_consumer_cluster" {
+  name     = "kafka-consumer-cluster"
+  location = var.vm_zone
+  
+  # We can't create a cluster with no node pool defined, but we want to only use
+  # separately managed node pools. So we create the smallest possible default
+  # node pool and immediately delete it.
+  remove_default_node_pool = true
+  initial_node_count       = 1
+
+  networking_mode = "VPC_NATIVE"
+  network         = var.network
+  
+  # IP allocation policy for VPC-native cluster
+  ip_allocation_policy {
+    # Let GKE choose the IP ranges
+  }
+
+  # Enable Workload Identity if you want to use it
+  workload_identity_config {
+    workload_pool = "${var.project}.svc.id.goog"
+  }
+}
+
+# Create a node pool for the GKE cluster
+resource "google_container_node_pool" "kafka_consumer_nodes" {
+  name       = "kafka-consumer-node-pool"
+  location   = var.vm_zone
+  cluster    = google_container_cluster.kafka_consumer_cluster.name
+  node_count = 2  # Adjust based on your needs
+  
+  node_config {
+    preemptible  = false
+    machine_type = "e2-standard-2"  # Adjust based on your needs
+    
+    # Google recommends custom service accounts with minimal permissions
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    # Enable workload identity on the node pool
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+  }
+}
+
+# Create Kubernetes Secret for Kafka credentials
+resource "kubernetes_secret" "kafka_credentials" {
+  metadata {
+    name = "kafka-credentials"
+  }
+
+  data = {
+    "kafka-api-key"    = confluent_api_key.client_kafka_api_key.id
+    "kafka-api-secret" = confluent_api_key.client_kafka_api_key.secret
+  }
+
+  depends_on = [
+    google_container_node_pool.kafka_consumer_nodes
+  ]
+}
+
+# Create Kubernetes Secret for GCP service account key
+resource "kubernetes_secret" "gcp_key" {
+  metadata {
+    name = "gcp-key"
+  }
+
+  data = {
+    "key.json" = file("./key.json")
+  }
+
+  depends_on = [
+    google_container_node_pool.kafka_consumer_nodes
+  ]
+}
+
+# Create Kubernetes Deployment for Kafka consumer
+resource "kubernetes_deployment" "kafka-consumer-i" {
+  metadata {
+    name = "kafka-consumer-i"
+    labels = {
+      app = "kafka-consumer-i"
+    }
+  }
+
+  spec {
+    replicas = 1  # Adjust based on your needs
+
+    selector {
+      match_labels = {
+        app = "kafka-consumer-i"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "kafka-consumer-i"
+        }
+      }
+
+      spec {
+        container {
+          image = "docker.io/kaushikdkrikhanu/backendserver:010"  # Replace with your Docker Hub image
+          name  = "kafka-consumer-i"
+
+          env {
+            name  = "KAFKA_BOOTSTRAP_SERVERS"
+            value = confluent_kafka_cluster.cluster.bootstrap_endpoint
+          }
+          
+          env {
+            name  = "KAFKA_SECURITY_PROTOCOL"
+            value = "SASL_SSL"
+          }
+          
+          env {
+            name  = "KAFKA_SASL_MECHANISM"
+            value = "PLAIN"
+          }
+          
+          env {
+            name  = "KAFKA_SASL_USERNAME"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.kafka_credentials.metadata[0].name
+                key  = "kafka-api-key"
+              }
+            }
+          }
+          
+          env {
+            name  = "KAFKA_SASL_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.kafka_credentials.metadata[0].name
+                key  = "kafka-api-secret"
+              }
+            }
+          }
+          
+          env {
+            name  = "GCS_BUCKET_NAME"
+            value = var.staging_bucket
+          }
+          
+          env {
+            name  = "PROJECT_ID"
+            value = var.project
+          }
+          
+          env {
+            name  = "REGION"
+            value = var.region
+          }
+          
+          env {
+            name  = "CLUSTER_NAME"
+            value = var.cluster_name
+          }
+          
+          env {
+            name  = "FILE_PROCESSING_TOPIC"
+            value = "file-processing"
+          }
+          
+          env {
+            name  = "SEARCH_REQUEST_TOPIC"
+            value = "search-request"
+          }
+          
+          env {
+            name  = "TOPN_REQUEST_TOPIC"
+            value = "topn-request"
+          }
+          
+          env {
+            name  = "SEARCH_RESPOND_TOPIC"
+            value = "search-response"
+          }
+          
+          env {
+            name  = "TOPN_RESPOND_TOPIC"
+            value = "topn-response"
+          }
+          
+          env {
+            name  = "FILE_PROCESSING_DONE_TOPIC"
+            value = "file-processing-done"
+          }
+          
+          volume_mount {
+            name       = "gcp-key"
+            mount_path = "/app/key.json"
+            sub_path   = "key.json"
+            read_only  = true
+          }
+          
+          resources {
+            limits = {
+              cpu    = "500m"
+              memory = "512Mi"
+            }
+            requests = {
+              cpu    = "250m"
+              memory = "256Mi"
+            }
+          }
+        }
+        
+        volume {
+          name = "gcp-key"
+          secret {
+            secret_name = kubernetes_secret.gcp_key.metadata[0].name
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    confluent_kafka_topic.topics,
+    google_dataproc_cluster.dp_cluster,
+    kubernetes_secret.kafka_credentials,
+    kubernetes_secret.gcp_key
+  ]
+}
+
 # Output important information
 output "kafka_bootstrap_servers" {
   description = "Kafka bootstrap servers"
@@ -209,99 +457,17 @@ output "created_topics" {
   value       = var.topic_names
 }
 
-# Google Compute Engine VM to run the Kafka consumer container
-resource "google_compute_instance" "kafka_consumer_vm" {
-  name         = "kafka-consumer-vm"
-  machine_type = "e2-medium"
-  zone         = var.vm_zone
-  tags         = ["kafka-consumer"]
-
-  boot_disk {
-    initialize_params {
-      image = "cos-cloud/cos-stable"  # Container-Optimized OS
-      size  = 30
-    }
-  }
-
-  network_interface {
-    network = var.network
-    access_config {
-      // Ephemeral public IP
-    }
-  }
-
-  metadata = {
-    gce-container-declaration = <<EOT
-spec:
-  containers:
-    - name: kafka-consumer
-      image: 'docker.io/kaushikdkrikhanu/backendserver:001'  # Replace with your Docker Hub image
-      env:
-        - name: KAFKA_BOOTSTRAP_SERVERS
-          value: '${confluent_kafka_cluster.cluster.bootstrap_endpoint}'
-        - name: KAFKA_SECURITY_PROTOCOL
-          value: 'SASL_SSL'
-        - name: KAFKA_SASL_MECHANISM
-          value: 'PLAIN'
-        - name: KAFKA_SASL_USERNAME
-          value: '${confluent_api_key.client_kafka_api_key.id}'
-        - name: KAFKA_SASL_PASSWORD
-          value: '${confluent_api_key.client_kafka_api_key.secret}'
-        - name: GCS_BUCKET_NAME
-          value: '${var.staging_bucket}'
-        - name: PROJECT_ID
-          value: '${var.project}'
-        - name: REGION
-          value: '${var.region}'
-        - name: CLUSTER_NAME
-          value: '${var.cluster_name}'
-        - name: FILE_PROCESSING_TOPIC
-          value: 'file-processing' 
-        - name: SEARCH_REQUEST_TOPIC
-          value: 'search-request'
-        - name: TOPN_REQUEST_TOPIC
-          value: 'topn-request'
-        - name: SEARCH_RESPOND_TOPIC
-          value: 'search-response'
-        - name: TOPN_RESPOND_TOPIC
-          value: 'topn-response'
-        - name: FILE_PROCESSING_DONE_TOPIC
-          value: 'file-processing-done'
-      volumeMounts:
-        - name: gcp-key
-          mountPath: /app/key.json
-          readOnly: true
-  volumes:
-    - name: gcp-key
-      hostPath:
-        path: /etc/gcp/key.json
-EOT
-
-    google-logging-enabled = "true"
-    google-monitoring-enabled = "true"
-  }
-
-  # Copy the service account key to the VM
-  metadata_startup_script = <<SCRIPT
-mkdir -p /etc/gcp
-echo '${file("./key.json")}' > /etc/gcp/key.json
-chmod 400 /etc/gcp/key.json
-SCRIPT
-
-  service_account {
-    email  = var.service_account
-    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
-  }
-
-  # Only create VM after Kafka is fully configured
-  depends_on = [
-    confluent_kafka_topic.topics,
-    google_dataproc_cluster.dp_cluster
-  ]
+output "gke_cluster_name" {
+  description = "Name of the GKE cluster"
+  value       = google_container_cluster.kafka_consumer_cluster.name
 }
 
-# Output the VM's external IP
-output "kafka_consumer_vm_ip" {
-  description = "External IP of the Kafka consumer VM"
-  value       = google_compute_instance.kafka_consumer_vm.network_interface[0].access_config[0].nat_ip
+output "gke_cluster_endpoint" {
+  description = "Endpoint of the GKE cluster"
+  value       = google_container_cluster.kafka_consumer_cluster.endpoint
+}
+
+output "kubectl_connection_command" {
+  description = "Command to configure kubectl"
+  value       = "gcloud container clusters get-credentials ${google_container_cluster.kafka_consumer_cluster.name} --zone ${var.vm_zone} --project ${var.project}"
 }

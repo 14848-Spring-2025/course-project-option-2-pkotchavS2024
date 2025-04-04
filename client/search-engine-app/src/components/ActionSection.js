@@ -1,3 +1,4 @@
+// ActionSection.js
 import React, { useState } from 'react';
 import DebugOutput from './DebugOutput';
 
@@ -15,62 +16,68 @@ const ActionSection = ({ onSearch, onTopN, onBack }) => {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    
+
     const trimmedKeyword = keyword.trim();
-    
+
     if (!trimmedKeyword) {
       alert("Please enter a keyword to search");
       return;
     }
-    
+
     debug(`Search button clicked with keyword: ${trimmedKeyword}`);
-    
+
     try {
       debug("Sending search request");
+      const startTime = performance.now();
       const response = await fetch(`http://localhost:3000/search?keyword=${encodeURIComponent(trimmedKeyword)}`);
-      
+      const endTime = performance.now();
+      const timeTaken = endTime - startTime;
+
       if (!response.ok) {
         throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
-      
+
       const result = await response.json();
       debug(`Search results received: ${JSON.stringify(result)}`);
-      
-      // Call the parent's callback with the results
-      onSearch(result, trimmedKeyword);
-      
+
+      // Call the parent's callback with the results and time taken
+      onSearch(result, trimmedKeyword, timeTaken);
+
     } catch (error) {
       debug(`Search error: ${error.message}`);
       alert(`Search failed: ${error.message}`);
     }
   };
-  
+
   const handleTopN = async (e) => {
     e.preventDefault();
-    
+
     const n = topN;
-    
+
     if (!n || isNaN(parseInt(n)) || parseInt(n) < 1) {
       alert("Please enter a valid number");
       return;
     }
-    
+
     debug(`Top-N button clicked with N: ${n}`);
-    
+
     try {
       debug("Sending top-n request");
+      const startTime = performance.now();
       const response = await fetch(`http://localhost:3000/topn?n=${encodeURIComponent(n)}`);
-      
+      const endTime = performance.now();
+      const timeTaken = endTime - startTime;
+
       if (!response.ok) {
         throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
-      
+
       const result = await response.json();
       debug(`Top-N results received: ${JSON.stringify(result)}`);
-      
-      // Call the parent's callback with the results
-      onTopN(result, n);
-      
+
+      // Call the parent's callback with the results, n, and time taken
+      onTopN(result, n, timeTaken);
+
     } catch (error) {
       debug(`Top-N error: ${error.message}`);
       alert(`Top-N failed: ${error.message}`);

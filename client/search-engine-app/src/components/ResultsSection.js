@@ -1,7 +1,9 @@
+
+// ResultsSection.js
 import React, { useState, useEffect } from 'react';
 import DebugOutput from './DebugOutput';
 
-const ResultsSection = ({ title, data, keyword, onBack }) => {
+const ResultsSection = ({ title, data, keyword, timeTaken, onBack }) => {
   const [debugMessages, setDebugMessages] = useState([]);
 
   // Debug helper function
@@ -23,27 +25,27 @@ const ResultsSection = ({ title, data, keyword, onBack }) => {
   };
 
   const renderSearchResults = () => {
-    // Check if we have results for this keyword
-    const results = data;
+      // Check if we have results for this keyword
+      const results = data;
     
-    if (!results || Object.keys(results).length === 0) {
-      return <p>No results found for "{keyword}".</p>;
-    }
-    
-    // Process each term in the results
-    return Object.keys(results).map(term => (
-      <div key={term}>
-        <h3>Results for "{term}"</h3>
-        <ul>
-          {results[term].map((doc, index) => (
-            <li key={index}>
-              <div><strong>Document:</strong> {doc.doc_id}</div>
-              <div><strong>Score:</strong> {doc.score}</div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    ));
+      if (!results || Object.keys(results).length === 0) {
+        return <p>No results found for "{keyword}".</p>;
+      }
+      
+      // Process each term in the results
+      return Object.keys(results).map(term => (
+        <div key={term}>
+          <h3>Results for "{term}"</h3>
+          <ul>
+            {results[term].map((doc, index) => (
+              <li key={index}>
+                <div><strong>Document:</strong> {doc.doc_id}</div>
+                <div><strong>Score:</strong> {doc.score}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ));
   };
 
   const renderTopNResults = () => {
@@ -56,7 +58,7 @@ const ResultsSection = ({ title, data, keyword, onBack }) => {
           </li>
         ))}
       </ul>
-    );
+    );  
   };
 
   return (
@@ -64,7 +66,8 @@ const ResultsSection = ({ title, data, keyword, onBack }) => {
       <h1>Results</h1>
       <div>
         <h2>{title}</h2>
-        
+        <p>Time taken: {timeTaken.toFixed(2)} ms</p>
+
         {!data || Object.keys(data).length === 0 ? (
           <p>No results found.</p>
         ) : (
@@ -72,7 +75,7 @@ const ResultsSection = ({ title, data, keyword, onBack }) => {
         )}
       </div>
       <button className="big-button" onClick={handleBack}>Back</button>
-      
+
       <DebugOutput messages={debugMessages} />
     </div>
   );

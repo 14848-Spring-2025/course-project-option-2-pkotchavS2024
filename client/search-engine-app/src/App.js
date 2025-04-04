@@ -1,4 +1,4 @@
-// src/App.js
+// App.js
 import React, { useState } from 'react';
 import './App.css';
 import UploadSection from './components/UploadSection';
@@ -10,6 +10,7 @@ function App() {
   const [results, setResults] = useState(null);
   const [resultsTitle, setResultsTitle] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [timeTaken, setTimeTaken] = useState(0);
 
   // Handle upload completion
   const handleUploadComplete = () => {
@@ -17,18 +18,20 @@ function App() {
   };
 
   // Handle search action
-  const handleSearch = (data, keyword) => {
+  const handleSearch = (data, keyword, time) => {
     setResults(data);
     setResultsTitle(`Search Results for "${keyword}"`);
     setSearchKeyword(keyword);
+    setTimeTaken(time);
     setCurrentView('results');
   };
 
   // Handle top-n action
-  const handleTopN = (data, n) => {
+  const handleTopN = (data, n, time) => {
     setResults(data);
     setResultsTitle(`Top ${n} Words`);
     setSearchKeyword(''); // Clear search keyword as this is not a search result
+    setTimeTaken(time);
     setCurrentView('results');
   };
 
@@ -45,11 +48,11 @@ function App() {
   return (
     <div className="App">
       <div className="watermark">Search Engine</div>
-      
+
       {currentView === 'upload' && (
         <UploadSection onUploadComplete={handleUploadComplete} />
       )}
-      
+
       {currentView === 'action' && (
         <ActionSection 
           onSearch={handleSearch} 
@@ -57,12 +60,13 @@ function App() {
           onBack={handleBackToUpload} 
         />
       )}
-      
+
       {currentView === 'results' && (
         <ResultsSection 
           title={resultsTitle}
           data={results}
           keyword={searchKeyword}
+          timeTaken={timeTaken}
           onBack={handleBackToAction}
         />
       )}
