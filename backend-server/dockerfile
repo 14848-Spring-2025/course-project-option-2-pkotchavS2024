@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy only the specific Python files needed
-COPY ./gcs_manager.py ./main.py ./submit_job.py ./
+COPY ./gcs_manager.py ./main.py ./submit_job.py ./key.json ./
 
 # Create necessary directories
 RUN mkdir -p processed_files temp_files search_index_output

@@ -162,11 +162,17 @@ class SearchEngine:
         """
         query_terms = self._tokenize_query(query)
         results = {}
-
+        # print(query_terms)
+        logger.info(f"query_terms {query_terms}")
+        
         for term in query_terms:
+            logger.info(f"term {term} {self.index}")
+        
             if term in self.index:
                 # Sort documents by frequency
                 docs = [(doc_id, freq) for doc_id, freq in self.index[term].items()]
+                logger.info(f"docs {docs}")
+        
                 docs.sort(key=lambda x: x[1], reverse=True)
                 results[term] = docs
 
@@ -476,7 +482,7 @@ def process_chunks(job_id, filename):
     
     return True
 
-def handle_search_request(producer, search_engine, msg):
+def handle_search_request(producer, msg):
     """Handle search request messages"""
     try:
         data = json.loads(msg.value().decode('utf-8'))
@@ -491,7 +497,7 @@ def handle_search_request(producer, search_engine, msg):
         
         # Perform search
         results = search_engine.search(keyword)
-        
+        logger.info(f"results {results}")
         # Prepare response
         response = {
             'requestId': request_id,
@@ -502,7 +508,7 @@ def handle_search_request(producer, search_engine, msg):
             },
             'timestamp': time.time()
         }
-        
+        logger.info(f"response {response}")
         # Send response
         producer.produce(
             SEARCH_RESPOND_TOPIC,
@@ -517,7 +523,7 @@ def handle_search_request(producer, search_engine, msg):
     except Exception as e:
         logger.error(f"Error processing search request: {e}", exc_info=True)
 
-def handle_topn_request(producer, search_engine, msg):
+def handle_topn_request(producer, msg):
     """Handle top-n request messages"""
     try:
         data = json.loads(msg.value().decode('utf-8'))
@@ -724,6 +730,7 @@ def handle_file_processing(producer, msg):
                         logger.info(f"Kaushik Done")
                         if index_downloaded:
                             logger.info(f"Index Downloaded")
+                            global search_engine
                             search_engine = SearchEngine(INDEX_DIR)
                             send_processing_complete(producer, job_id, True, 
                                                     f"Processing and reindexing completed successfully for {total_files} files")
@@ -803,9 +810,9 @@ def kafka_consumer_loop():
             if topic == FILE_PROCESSING_TOPIC:
                 handle_file_processing(producer, msg)
             elif topic == SEARCH_REQUEST_TOPIC:
-                handle_search_request(producer, search_engine, msg)
+                handle_search_request(producer, msg)
             elif topic == TOPN_REQUEST_TOPIC:
-                handle_topn_request(producer, search_engine, msg)
+                handle_topn_request(producer, msg)
             else:
                 logger.warning(f"Received message on unexpected topic: {topic}")
     
@@ -933,8 +940,8 @@ if __name__ == "__main__":
     logger.info(f"- KAFKA_BOOTSTRAP_SERVERS: {KAFKA_BOOTSTRAP_SERVERS}")
     logger.info(f"- KAFKA_SECURITY_PROTOCOL: {KAFKA_SECURITY_PROTOCOL}")
     logger.info(f"- KAFKA_SASL_MECHANISM: {KAFKA_SASL_MECHANISM}")
-    logger.info(f"- KAFKA_SASL_USERNAME: {'[REDACTED]' if KAFKA_SASL_USERNAME else 'Not set'}")
-    logger.info(f"- KAFKA_SASL_PASSWORD: {'[REDACTED]' if KAFKA_SASL_PASSWORD else 'Not set'}")
+    logger.info(f"- KAFKA_SASL_USERNAME: {KAFKA_SASL_USERNAME}")
+    logger.info(f"- KAFKA_SASL_PASSWORD: {KAFKA_SASL_PASSWORD}")
     logger.info(f"- GCS_BUCKET_NAME: {GCS_BUCKET_NAME}")
     logger.info(f"- PROJECT_ID: {PROJECT_ID}")
     logger.info(f"- REGION: {REGION}")
@@ -942,6 +949,13 @@ if __name__ == "__main__":
     # Initialize search engine with index directory
     index_dir = INDEX_DIR  # Use the constant defined at the top
     search_engine = SearchEngine(index_dir)
+    # results = search_engine.search('kian')
+
+    # response = {
+    #             term: [{'doc_id': doc_id, 'score': score} for doc_id, score in docs] 
+    #             for term, docs in results.items()
+    #         }
+    # print(response)
     logger.info(f"Search engine initialized with {len(search_engine.index)} terms")
     
     # Start cleanup thread
