@@ -1,6 +1,7 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/Xjl5orOJ)
 
-Partner: Kaushik Deka (andrewid: kaushikd) 
+Doint it alone. Kaushik Deka (andrewid: kaushikd) 
+Paul left the course.
 **Docker iamges URL** 
 - Server image: https://hub.docker.com/r/pkotchav/proj-op2-server
 - Client image: https://hub.docker.com/r/pkotchav/client
@@ -139,3 +140,9 @@ docker build -t <image_name> .
  
 2. Run the server on port `3000`:
 docker run -p 3000:3000 <image_name>
+
+## Demo
+https://drive.google.com/file/d/1c20qzvLRdg4BpJTGVXCjCcCwCyb9i1ha/view?usp=sharing
+
+## Code explanation
+https://drive.google.com/file/d/1tZhQ_po5ER8T3hIBgXvYBi6IfmxXqZPa/view?usp=sharing
