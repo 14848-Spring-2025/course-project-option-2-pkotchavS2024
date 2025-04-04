@@ -1,1 +1,3 @@
 confluent-kafka
+google-cloud-dataproc
+google-cloud-storage

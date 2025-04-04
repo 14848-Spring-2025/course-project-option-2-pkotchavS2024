@@ -155,6 +155,12 @@ variable "zone" {
   default = "europe-west1-b"
 }
 
+variable "vm_zone" {
+  type = string
+  description = "The GCP zone where your data is stored and used"
+  default = "us-east1-b"
+}
+
 variable "scale_up_factor" {
   type = number
   description = "Fraction of average pending memory in the last cooldown period for which to add workers. A scale-up factor of 1.0 will result in scaling up so that there is no pending memory remaining after the update (more aggressive scaling). A scale-up factor closer to 0 will result in a smaller magnitude of scaling up (less aggressive scaling). Bounds: [0.0, 1.0]."
@@ -225,4 +231,46 @@ variable "initialization_timeout_sec" {
   type = number
   description = "The maximum duration (in seconds) which script is allowed to take to execute its action."
   default = 300
+}
+
+variable "confluent_cloud_api_key" {
+  description = "Confluent Cloud API Key"
+  type        = string
+  sensitive   = false
+}
+
+variable "confluent_cloud_api_secret" {
+  description = "Confluent Cloud API Secret"
+  type        = string
+  sensitive   = false
+}
+
+variable "environment_name" {
+  description = "Confluent environment name"
+  type        = string
+  default     = "development"
+}
+
+variable "kafka_cluster_name" {
+  description = "Kafka cluster name"
+  type        = string
+  default     = "kafka-cluster"
+}
+
+variable "kafka_region" {
+  description = "Confluent Cloud region"
+  type        = string
+  default     = "us-west-2"
+}
+
+variable "service_account_name" {
+  description = "Service account name for Kafka client"
+  type        = string
+  default     = "kafka-client-sa"
+}
+
+variable "topic_names" {
+  description = "List of Kafka topics to create"
+  type        = list(string)
+  default     = ["file-processing", "search-request", "search-response", "file-processing-done", "topn-request", "topn-response"]
 }
